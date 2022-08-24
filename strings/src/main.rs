@@ -34,6 +34,6 @@ fn main() {
     println!("to_uppercase: {}", my_string1.to_uppercase());
     let my_vec: Vec<&str> = my_string1.split(' ').collect();
     println!("to_uppercase: {:?}", my_vec);
-    let my_vec: Vec<&str> = my_vec.iter().map(|&x| x.to_uppercase()).collect(); // why?
+    let my_vec: Vec<String> = my_vec.iter().map(|&x| x.to_uppercase()).collect();
     println!("to_uppercase: {:?}", my_vec);
 }
