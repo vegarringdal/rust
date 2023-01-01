@@ -1,0 +1,9 @@
+{
+    "recommendations": [
+        "humao.rest-client",
+        "rust-lang.rust-analyzer",
+        "dustypomerleau.rust-syntax",
+        "jscearcy.rust-doc-viewer",
+        "serayuzgur.crates"
+    ]
+}
