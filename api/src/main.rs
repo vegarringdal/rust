@@ -1,6 +1,13 @@
 use actix_files as fs;
-use actix_web::{get, post, web, Error, HttpRequest, Responder, Result, http::header::{ContentDisposition, DispositionType}};
+use actix_web::{
+    get,
+    http::header::{ContentDisposition, ContentType, DispositionType},
+    post, web, Error, HttpRequest, HttpResponse, Responder, Result,
+};
+use async_stream::stream;
 use serde::{Deserialize, Serialize};
+use std::convert::Infallible;
+use std::{thread, time};
 
 #[derive(Serialize, Clone)]
 struct MyResult {
@@ -76,9 +83,27 @@ async fn files(req: HttpRequest) -> Result<fs::NamedFile, Error> {
         }))
 }
 
+#[get("/stream/{view_name}")]
+async fn stream_api(view_name: web::Path<String>) -> HttpResponse {
+ /*    let ten_millis = time::Duration::from_millis(1); */
+
+    HttpResponse::Ok()
+        .content_type(ContentType::plaintext())
+        .streaming(stream! {
+
+            for _ in 0..1000000000 {
+               /*  thread::sleep(ten_millis); */
+                yield Ok::<_, Infallible>(web::Bytes::from("Hello dfsfsdfdsfdsfdsfdsfdsfdsfdsfdsfdsf" ));
+            }
+
+
+        })
+}
+
 /**
  * main app
  */
+
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     use actix_web::{App, HttpServer};
@@ -87,6 +112,7 @@ async fn main() -> std::io::Result<()> {
         App::new()
             .service(get_api)
             .service(post_api)
+            .service(stream_api)
             .service(files)
     })
     .bind(("127.0.0.1", 80))?

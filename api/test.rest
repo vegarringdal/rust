@@ -20,3 +20,8 @@ content-type: application/json
 ### get index
 
 GET http://localhost/index.js HTTP/1.1
+
+
+### get index
+
+GET http://localhost/stream/test HTTP/1.1
