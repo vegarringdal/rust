@@ -16,7 +16,7 @@
             const promises = []
             for(let i = 0; i < 50; i++){
 
-                const reponse = await fetch("http://localhost/stream/test")
+                const reponse = await fetch("http://localhost:1080/stream/test")
                 console.log(i)
                 if(reponse.ok){
                     promises.push(reponse.text())
