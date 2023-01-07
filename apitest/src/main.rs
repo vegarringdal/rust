@@ -6,7 +6,7 @@ use async_stream::stream;
 use std::convert::Infallible;
 use dotenv::dotenv;
 use actix_cors::Cors;
-
+use chrono::NaiveDateTime;
 
 use oracle::{Connection, Result};
 use serde_json::{Map, Value};
@@ -61,7 +61,21 @@ async fn stream_api(_view_name: web::Path<String>) -> HttpResponse {
                     
                     if col_value_result.is_ok() {
                         if col_type == "DATE" {
-                            // todo
+
+                            let date_str = col_value_result.unwrap();
+                            let datetime = NaiveDateTime::parse_from_str(date_str.as_str(), "%Y-%m-%d %H:%M:%S");
+                            if datetime.is_ok() {
+                                // prob not 100% isodate, depends on what we get from oracle?... but a start :-)
+                                json_map.insert(
+                                    col_name.clone(),
+                                    Value::String(
+                                        datetime
+                                            .unwrap()
+                                            .format("%Y-%m-%dT%H:%M:%S.00Z")
+                                            .to_string(),
+                                    ),
+                                );
+                            }
                         } else {
                             json_map.insert(col_name.clone(), Value::String(col_value_result.unwrap()));
                         }
