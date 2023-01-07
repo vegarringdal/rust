@@ -23,6 +23,9 @@ async fn stream_api(_view_name: web::Path<String>) -> HttpResponse {
     let database_username = std::env::var("DB_USERNAME").expect("DB_USERNAME must be set.");
     let database_password = std::env::var("DB_PASSWORD").expect("DB_PASSWORD must be set.");
     let database_select = std::env::var("DB_SELECT").expect("DB_SELECT must be set.");
+
+    println!("connectionstring {}", database_connection_string);
+
     let conn = Connection::connect(
         database_username,
         database_password,
@@ -107,7 +110,7 @@ async fn main() -> std::io::Result<()> {
         App::new().service(stream_api).wrap(cors)
     })
     
-    .bind(("127.0.0.1", 80))?
+    .bind(("0.0.0.0", 1080))?
     .run()
     .await
 }
