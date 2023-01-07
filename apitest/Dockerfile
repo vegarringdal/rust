@@ -40,7 +40,7 @@ RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
 RUN ldconfig
 
 
-COPY --from=rustbuilder /usr/src/app/target/release /usr/src/app
+COPY --from=rustbuilder /usr/src/app/target/release/apitest /usr/src/app
 
 EXPOSE 1080
 CMD ./apitest
