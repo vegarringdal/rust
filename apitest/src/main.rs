@@ -8,35 +8,23 @@ use dotenv::dotenv;
 use actix_cors::Cors;
 use chrono::NaiveDateTime;
 
-use oracle::{Connection, Result};
+use oracle::{Result};
 use serde_json::{Map, Value};
+use r2d2_oracle::OracleConnectionManager;
+use actix_web::web::Data;
 
-
-
+pub type DbPool = r2d2::Pool<OracleConnectionManager>;
 
 #[get("/stream/{view_name}")]
-async fn stream_api(_view_name: web::Path<String>) -> HttpResponse {
+async fn stream_api(pool_data: web::Data<DbPool>, _view_name: web::Path<String>) -> HttpResponse {
 
-
-    let database_connection_string =
-    std::env::var("DB_CONNECTION_STRING").expect("DB_CONNECTION_STRING must be set.");
-    let database_username = std::env::var("DB_USERNAME").expect("DB_USERNAME must be set.");
-    let database_password = std::env::var("DB_PASSWORD").expect("DB_PASSWORD must be set.");
     let database_select = std::env::var("DB_SELECT").expect("DB_SELECT must be set.");
-
-    println!("DB_CONNECTION_STRING {}", database_connection_string);
-    println!("DB_USERNAME {}", database_username);
     println!("DB_SELECT {}", database_select);
 
+    let conn = pool_data.get().unwrap();
 
-    let conn = Connection::connect(
-        database_username,
-        database_password,
-        database_connection_string,
-    ).unwrap();
-    
     HttpResponse::Ok()
-        .content_type(ContentType::plaintext())
+        .content_type(ContentType::json())
         .streaming(stream! {
 
             let mut stmt = conn
@@ -106,15 +94,38 @@ async fn main() -> std::io::Result<()> {
     dotenv().ok();
     use actix_web::{App, HttpServer};
 
+    
+
+    let database_connection_string =
+    std::env::var("DB_CONNECTION_STRING").expect("DB_CONNECTION_STRING must be set.");
+    let database_username = std::env::var("DB_USERNAME").expect("DB_USERNAME must be set.");
+    let database_password = std::env::var("DB_PASSWORD").expect("DB_PASSWORD must be set.");
+
+    println!("DB_CONNECTION_STRING {}", database_connection_string);
+    println!("DB_USERNAME {}", database_username);
+
+
+    let manager = OracleConnectionManager::new(database_username.as_str(), database_password.as_str(), database_connection_string.as_str());
+    let pool = r2d2::Pool::builder()
+         .max_size(15)
+         .build(manager)
+         .unwrap();
+    
+
     let timeout = std::time::Duration::from_secs(20);
     let keepalive = std::time::Duration::from_secs(20);
 
-    HttpServer::new(|| {
+    
+    let pool_clone = Data::new(pool.clone());
+    HttpServer::new(move || {
+        println!("Thread created {}", 1);
         let cors = Cors::permissive();
-        App::new().service(stream_api).wrap(cors)
+        App::new().app_data(pool_clone.clone()).service(stream_api).wrap(cors)
     }).client_request_timeout(timeout).keep_alive(keepalive)
     
     .bind(("0.0.0.0", 1080))?
     .run()
     .await
+    
+    
 }
