@@ -41,8 +41,8 @@ async fn stream_api(_view_name: web::Path<String>) -> HttpResponse {
 
             let mut stmt = conn
             .statement(database_select.as_str())
-            .fetch_array_size(1000)
-            .prefetch_rows(1000)
+            .fetch_array_size(100)
+            .prefetch_rows(100)
             .build().unwrap();
             let rows = stmt.query(&[]).unwrap();
     
@@ -106,12 +106,13 @@ async fn main() -> std::io::Result<()> {
     dotenv().ok();
     use actix_web::{App, HttpServer};
 
- 
+    let timeout = std::time::Duration::from_secs(20);
+    let keepalive = std::time::Duration::from_secs(20);
 
     HttpServer::new(|| {
         let cors = Cors::permissive();
         App::new().service(stream_api).wrap(cors)
-    })
+    }).client_request_timeout(timeout).keep_alive(keepalive)
     
     .bind(("0.0.0.0", 1080))?
     .run()
