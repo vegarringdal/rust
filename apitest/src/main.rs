@@ -24,7 +24,10 @@ async fn stream_api(_view_name: web::Path<String>) -> HttpResponse {
     let database_password = std::env::var("DB_PASSWORD").expect("DB_PASSWORD must be set.");
     let database_select = std::env::var("DB_SELECT").expect("DB_SELECT must be set.");
 
-    println!("connectionstring {}", database_connection_string);
+    println!("DB_CONNECTION_STRING {}", database_connection_string);
+    println!("DB_USERNAME {}", database_username);
+    println!("DB_SELECT {}", database_select);
+
 
     let conn = Connection::connect(
         database_username,

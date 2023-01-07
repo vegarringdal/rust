@@ -13,7 +13,7 @@ RUN dnf -y install oracle-instantclient-basiclite-21.4.0.0.0-1.x86_64.rpm
 ################################
 # rust build
 ################################
-FROM rust:buster as rustbuilder
+FROM rust:buster
 
 WORKDIR /usr/src/app
 COPY . ./
@@ -23,21 +23,24 @@ RUN cargo build --release
 ################################
 # bring it all togther
 ################################
-FROM debian:buster
+#FROM debian:buster
 
-WORKDIR /usr/src/app
+#WORKDIR /usr/src/app
 
 COPY --from=oracleDrivers /usr/lib/oracle /usr/lib/oracle
 COPY --from=oracleDrivers /usr/share/oracle /usr/share/oracle
 COPY --from=oracleDrivers /etc/ld.so.conf.d/oracle-instantclient.conf /etc/ld.so.conf.d/oracle-instantclient.conf
 
-RUN apt-get update -y && apt-get install -y ca-certificates
+
+RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
+   && apt-get install -y ca-certificates \
+   && apt-get install -y libaio1 \
+   && apt-get autoremove -y && apt-get clean -y
+
 RUN ldconfig
 
-RUN apt-get update && apt-get -y upgrade && apt-get -y dist-upgrade && apt-get install -y libaio1 && \
-    apt-get -y autoremove && apt-get -y clean
 
-COPY --from=rustbuilder /usr/src/app/target/release/*apitest* /usr/src/app
+#COPY --from=rustbuilder /usr/src/app/target/release /usr/src/app
 
 EXPOSE 1080
-CMD ./apitest
+CMD ./target/release/apitest
