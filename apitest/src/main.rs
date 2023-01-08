@@ -15,6 +15,32 @@ use actix_web::web::Data;
 
 pub type DbPool = r2d2::Pool<OracleConnectionManager>;
 
+
+use std::future::Future;
+use std::pin::Pin;
+use std::task::{Context, Poll};
+use std::time::{Duration, Instant};
+
+struct Delay {
+    when: Instant,
+}
+
+impl Future for Delay {
+    type Output = &'static str;
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>)
+        -> Poll<&'static str>
+    {
+        if Instant::now() >= self.when {
+            Poll::Ready("done")
+        } else {
+            // Ignore this line for now.
+            cx.waker().wake_by_ref();
+            Poll::Pending
+        }
+    }
+}
+
 #[get("/stream/{view_name}")]
 async fn stream_api(pool_data: web::Data<DbPool>, _view_name: web::Path<String>) -> HttpResponse {
 
@@ -23,7 +49,14 @@ async fn stream_api(pool_data: web::Data<DbPool>, _view_name: web::Path<String>)
 
     let conn = pool_data.get().unwrap();
 
-    async fn get_rows(rows: &mut ResultSet<'_, Row>) -> Option<Result<Row>>{
+    async fn get_rows(rows: &mut ResultSet<'_, Row>, count: i32) -> Option<Result<Row>>{
+        if count > 500 {
+            let when = Instant::now() + Duration::from_millis(2);
+            let future = Delay { when };
+            let out = future.await;
+             assert_eq!(out, "done");
+        }
+        
         // next should have a await, so I could handle more requests on 1 thread
         let row_result = rows.next();
         row_result
@@ -48,11 +81,24 @@ async fn stream_api(pool_data: web::Data<DbPool>, _view_name: web::Path<String>)
                 let col_type = info.oracle_type().to_string();
                 column_names.push(col_name);
                 column_types.push(col_type);
-            }         
+            }      
+            
+            
+            let mut count = 0;
+        
+            
 
             loop {
                 // THis is still blocking...
-                let row_result = get_rows(&mut rows).await;
+                count += 1;
+
+
+
+                let row_result = get_rows(&mut rows, count.clone()).await;
+
+                if(count > 500){
+                    count = 0;
+                }
                 
                 if row_result.is_none() {
                     break;
