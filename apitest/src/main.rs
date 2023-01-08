@@ -8,7 +8,7 @@ use dotenv::dotenv;
 use actix_cors::Cors;
 use chrono::NaiveDateTime;
 
-use oracle::{Result};
+use oracle::{Result, ResultSet, Row};
 use serde_json::{Map, Value};
 use r2d2_oracle::OracleConnectionManager;
 use actix_web::web::Data;
@@ -22,6 +22,12 @@ async fn stream_api(pool_data: web::Data<DbPool>, _view_name: web::Path<String>)
     println!("DB_SELECT {}", database_select);
 
     let conn = pool_data.get().unwrap();
+
+    async fn get_rows(rows: &mut ResultSet<'_, Row>) -> Option<Result<Row>>{
+        // next should have a await, so I could handle more requests on 1 thread
+        let row_result = rows.next();
+        row_result
+    }
 
     HttpResponse::Ok()
         .content_type(ContentType::json())
@@ -42,13 +48,11 @@ async fn stream_api(pool_data: web::Data<DbPool>, _view_name: web::Path<String>)
                 let col_type = info.oracle_type().to_string();
                 column_names.push(col_name);
                 column_types.push(col_type);
-            }
-
-
-        
+            }         
 
             loop {
-                let row_result = rows.next();
+                // THis is still blocking...
+                let row_result = get_rows(&mut rows).await;
                 
                 if row_result.is_none() {
                     break;
