@@ -32,7 +32,7 @@ async fn stream_api(pool_data: web::Data<DbPool>, _view_name: web::Path<String>)
             .fetch_array_size(100)
             .prefetch_rows(100)
             .build().unwrap();
-            let rows = stmt.query(&[]).unwrap();
+            let mut rows = stmt.query(&[]).unwrap();
     
             let mut column_names = vec![];
             let mut column_types = vec![];
@@ -44,8 +44,18 @@ async fn stream_api(pool_data: web::Data<DbPool>, _view_name: web::Path<String>)
                 column_types.push(col_type);
             }
 
-            for row_result in rows {
-                let row = row_result.unwrap();
+
+        
+
+            loop {
+                let row_result = rows.next();
+                
+                if row_result.is_none() {
+                    break;
+                }
+
+                let row = row_result.unwrap().unwrap();
+
                 let mut json_map = Map::new();
         
                 for i in 0..column_names.len() {
@@ -121,7 +131,7 @@ async fn main() -> std::io::Result<()> {
         println!("Thread created {}", 1);
         let cors = Cors::permissive();
         App::new().app_data(pool_clone.clone()).service(stream_api).wrap(cors)
-    }).client_request_timeout(timeout).keep_alive(keepalive)
+    }).client_request_timeout(timeout).keep_alive(keepalive).workers(1)
     
     .bind(("0.0.0.0", 1080))?
     .run()
