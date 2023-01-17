@@ -20,6 +20,7 @@ use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 use std::time::{Duration, Instant};
+use std::str::FromStr;
 
 struct Delay {
     when: Instant,
@@ -45,13 +46,17 @@ impl Future for Delay {
 async fn stream_api(pool_data: web::Data<DbPool>, _view_name: web::Path<String>) -> HttpResponse {
 
     let database_select = std::env::var("DB_SELECT").expect("DB_SELECT must be set.");
+    let database_fetch_size = FromStr::from_str(std::env::var("DB_FETCH_SIZE").expect("DB_FETCH_SIZE must be set.").as_str()).unwrap();
     println!("DB_SELECT {}", database_select);
+    println!("DB_FETCH_SIZE {}", database_fetch_size);
+    
+
 
     let conn = pool_data.get().unwrap();
 
-    async fn get_rows(rows: &mut ResultSet<'_, Row>, count: i32) -> Option<Result<Row>>{
-        if count > 500 {
-            let when = Instant::now() + Duration::from_millis(2);
+    async fn get_rows(rows: &mut ResultSet<'_, Row>, count: u32, max_count: u32) -> Option<Result<Row>>{
+        if count > max_count {
+            let when = Instant::now() + Duration::from_millis(1);
             let future = Delay { when };
             let out = future.await;
              assert_eq!(out, "done");
@@ -68,8 +73,8 @@ async fn stream_api(pool_data: web::Data<DbPool>, _view_name: web::Path<String>)
 
             let mut stmt = conn
             .statement(database_select.as_str())
-            .fetch_array_size(100)
-            .prefetch_rows(100)
+            .fetch_array_size(database_fetch_size)
+            .prefetch_rows(database_fetch_size)
             .build().unwrap();
             let mut rows = stmt.query(&[]).unwrap();
     
@@ -84,7 +89,7 @@ async fn stream_api(pool_data: web::Data<DbPool>, _view_name: web::Path<String>)
             }      
             
             
-            let mut count = 0;
+            let mut count: u32 = 0;
         
             
 
@@ -94,9 +99,9 @@ async fn stream_api(pool_data: web::Data<DbPool>, _view_name: web::Path<String>)
 
 
 
-                let row_result = get_rows(&mut rows, count.clone()).await;
+                let row_result = get_rows(&mut rows, count.clone(), database_fetch_size).await;
 
-                if(count > 500){
+                if(count > database_fetch_size){
                     count = 0;
                 }
                 
@@ -160,6 +165,7 @@ async fn main() -> std::io::Result<()> {
     std::env::var("DB_CONNECTION_STRING").expect("DB_CONNECTION_STRING must be set.");
     let database_username = std::env::var("DB_USERNAME").expect("DB_USERNAME must be set.");
     let database_password = std::env::var("DB_PASSWORD").expect("DB_PASSWORD must be set.");
+    let database_max_pool = FromStr::from_str(std::env::var("DB_MAX_POOL").expect("DB_MAX_POOL must be set.").as_str()).unwrap();
 
     println!("DB_CONNECTION_STRING {}", database_connection_string);
     println!("DB_USERNAME {}", database_username);
@@ -167,7 +173,7 @@ async fn main() -> std::io::Result<()> {
 
     let manager = OracleConnectionManager::new(database_username.as_str(), database_password.as_str(), database_connection_string.as_str());
     let pool = r2d2::Pool::builder()
-         .max_size(15)
+         .max_size(database_max_pool)
          .build(manager)
          .unwrap();
     
@@ -181,7 +187,7 @@ async fn main() -> std::io::Result<()> {
         println!("Thread created {}", 1);
         let cors = Cors::permissive();
         App::new().app_data(pool_clone.clone()).service(stream_api).wrap(cors)
-    }).client_request_timeout(timeout).keep_alive(keepalive).workers(1)
+    }).client_request_timeout(timeout).keep_alive(keepalive)
     
     .bind(("0.0.0.0", 1080))?
     .run()
